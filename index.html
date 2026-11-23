@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MakeMyTrip Demo – Flights, Hotels and Buses</title>
+  <link rel="icon" href="data:,"><link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="#search">Make<span>My</span>Trip<small>Demo</small></a>
+    <nav><a href="#search" id="nav-search" class="on">Search</a><a href="#trips" id="nav-trips">My Trips</a><a href="admin.html">Admin Portal</a></nav>
+    <div id="userbox"></div>
+  </header>
+
+  <div id="view-search">
+    <section class="hero"><h1>Where to next?</h1><p>Search and book flights, hotels and buses in one place.</p></section>
+    <div class="searchbox">
+      <div class="tabs" id="tabs"></div>
+      <form class="row" id="form"><span id="fields" style="display:contents"></span>
+        <label>Max price (optional)<input name="max" type="number" min="1" placeholder="e.g. 5000"></label>
+        <button type="submit">Search</button>
+      </form>
+    </div>
+    <main>
+      <div class="promo"><div><b>FIRST10</b> – 10% off up to ₹500 on orders of ₹2,000+</div><div><b>SAVE20</b> – 20% off up to ₹1,000 on orders of ₹5,000+</div></div>
+      <h2 class="sec" id="resHead">All available flights</h2>
+      <div id="results"></div>
+    </main>
+  </div>
+
+  <main id="view-trips" hidden>
+    <h2 class="sec">My Trips</h2>
+    <div id="trips"></div>
+  </main>
+
+  <div class="modal" id="modal" hidden><div class="card" id="modalBody"></div></div>
+  <div id="toast"></div>
+  <datalist id="cities"><option value="BLR">Bengaluru</option><option value="DEL">Delhi</option><option value="BOM">Mumbai</option><option value="HYD">Hyderabad</option><option value="GOI">Goa</option></datalist>
+  <script src="engine.js"></script><script src="store.js"></script><script src="app.js"></script>
+</body>
+</html>

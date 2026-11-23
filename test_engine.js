@@ -1,0 +1,53 @@
+// Run: node --test test_engine.js
+const { describe, it, beforeEach } = require("node:test");
+const assert = require("node:assert");
+const { MakeMyTrip, BookingError } = require("./engine.js");
+
+describe("MakeMyTrip engine", () => {
+  let m, EM = "tanmay@example.com";
+  const bad = (fn) => assert.throws(fn, BookingError);
+  const bk = (pid = "F1", ...r) => m.book(EM, pid, ...r);
+  beforeEach(() => {
+    m = new MakeMyTrip();
+    m.register("Tanmay", EM, 20000);
+    m.addProduct({ pid: "F1", kind: "FLIGHT", name: "AI101", city: "BLR", dest: "DEL", price: 5000, stock: 3 });
+    m.addProduct({ pid: "H1", kind: "HOTEL", name: "Lakeview", city: "BLR", price: 4000, stock: 2 });
+    m.addProduct({ pid: "B1", kind: "BUS", name: "VRL", city: "BLR", dest: "HYD", price: 900, stock: 5 });
+  });
+  it("TC01 register valid user", () => assert.strictEqual(m.users[EM].name, "Tanmay"));
+  it("TC02 register invalid email", () => bad(() => m.register("A", "not-an-email")));
+  it("TC03 register duplicate email", () => bad(() => m.register("B", EM)));
+  it("TC04 search flights", () => assert.strictEqual(m.search("flight", "blr", "del").length, 1));
+  it("TC05 search with no match", () => assert.deepStrictEqual(m.search("flight", "BLR", "GOI"), []));
+  it("TC06 search hotels by city", () => assert.strictEqual(m.search("hotel", "BLR")[0].name, "Lakeview"));
+  it("TC07 search with price filter", () => assert.deepStrictEqual(m.search("bus", "BLR", "", 500), []));
+  it("TC08 book flight", () => assert.strictEqual(bk().amount, 5000));
+  it("TC09 book hotel 2 nights", () => assert.strictEqual(bk("H1", 1, 2).amount, 8000));
+  it("TC10 unknown user", () => bad(() => m.book("x@y.com", "F1")));
+  it("TC11 unknown item", () => bad(() => bk("Z9")));
+  it("TC12 quantity zero", () => bad(() => bk("F1", 0)));
+  it("TC13 quantity exceeds stock", () => bad(() => bk("F1", 4)));
+  it("TC14 coupon FIRST10", () => assert.strictEqual(bk("F1", 1, 1, "FIRST10").amount, 4500));
+  it("TC15 coupon SAVE20 is capped", () => assert.strictEqual(bk("F1", 2, 1, "SAVE20").amount, 9000));
+  it("TC16 coupon minimum amount", () => bad(() => bk("B1", 1, 1, "FIRST10")));
+  it("TC17 invalid coupon", () => bad(() => bk("F1", 1, 1, "FREE100")));
+  it("TC18 pay by UPI", () => assert.strictEqual(m.pay(bk().bid, "UPI").status, "CONFIRMED"));
+  it("TC19 pay with bad card", () => bad(() => m.pay(bk().bid, "CARD", "1234")));
+  it("TC20 pay by wallet deducts", () => { m.pay(bk().bid, "WALLET"); assert.strictEqual(m.users[EM].wallet, 15000); });
+  it("TC21 insufficient wallet", () => { m.users[EM].wallet = 100; bad(() => m.pay(bk().bid, "WALLET")); });
+  it("TC22 pay twice", () => { const b = bk(); m.pay(b.bid, "UPI"); bad(() => m.pay(b.bid, "UPI")); });
+  it("TC23 cancel flight refund", () => { const b = bk(); m.pay(b.bid, "UPI"); assert.strictEqual(m.cancel(b.bid), 4500); });
+  it("TC24 cancel hotel refund", () => { const b = bk("H1", 1, 2); m.pay(b.bid, "UPI"); assert.strictEqual(m.cancel(b.bid), 6400); });
+  it("TC25 cancel restores stock", () => { const b = bk("F1", 2); m.cancel(b.bid); assert.strictEqual(m.products.F1.stock, 3); });
+  it("TC26 cancel unpaid booking", () => assert.strictEqual(m.cancel(bk().bid), 0));
+  it("TC27 cancel twice", () => { const b = bk(); m.cancel(b.bid); bad(() => m.cancel(b.bid)); });
+  it("TC28 login valid", () => { m.register("Asha", "asha@example.com", 0, "secret123"); assert.strictEqual(m.login("asha@example.com", "secret123").name, "Asha"); });
+  it("TC29 login wrong password", () => { m.register("Asha", "asha@example.com", 0, "secret123"); bad(() => m.login("asha@example.com", "nope")); });
+  it("TC30 short password", () => bad(() => m.register("B", "b@example.com", 0, "123")));
+  it("TC31 admin login", () => { assert.ok(m.adminLogin("admin@makemytrip.com", "admin123")); bad(() => m.adminLogin("admin@makemytrip.com", "wrong")); });
+  it("TC32 cancel another user's booking", () => { m.register("Asha", "asha@example.com"); bad(() => m.cancel(bk().bid, "asha@example.com")); });
+  it("TC33 admin updates price and stock", () => { m.updateProduct("F1", { price: 5500, stock: 10 }); assert.deepStrictEqual([m.products.F1.price, m.products.F1.stock], [5500, 10]); });
+  it("TC34 admin removes item", () => { m.removeProduct("B1"); assert.deepStrictEqual(m.search("bus", "BLR"), []); });
+  it("TC35 dashboard revenue", () => { m.pay(bk().bid, "UPI"); assert.strictEqual(m.stats().revenue, 5000); });
+  it("TC36 state survives save and load", () => { const b = bk(); const m2 = new MakeMyTrip(m.snapshot()); assert.strictEqual(m2.bookings[b.bid].amount, 5000); });
+});
